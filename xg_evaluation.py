@@ -69,7 +69,41 @@ def decode_shot_event_data(event_vector: np.ndarray) -> Dict:
     return {**common_data, **shot_data}
 
 
-def format_shot_display(shot_data: Dict, model_prediction: float, goal_label: int) -> str:
+def calculate_relative_performance_score(model_xg: float, statsbomb_xg: float, actual_outcome: int) -> float:
+    """
+    Calculate a relative performance score comparing model vs StatsBomb xG.
+    
+    The score measures how much better (or worse) the model prediction is compared to 
+    StatsBomb xG relative to the actual outcome.
+    
+    Args:
+        model_xg: Model's xG prediction (0-1)
+        statsbomb_xg: StatsBomb's xG value (0-1)  
+        actual_outcome: Actual outcome (0 = no goal, 1 = goal)
+        
+    Returns:
+        float: Relative performance score
+            > 0: Model is better than StatsBomb
+            < 0: Model is worse than StatsBomb  
+            ≈ 0: Similar performance
+    """
+    # Calculate absolute errors
+    model_error = abs(model_xg - actual_outcome)
+    statsbomb_error = abs(statsbomb_xg - actual_outcome)
+    
+    # Small epsilon to avoid division by zero
+    epsilon = 0.01
+    
+    # Calculate relative performance score
+    # (StatsBomb_Error - Model_Error) / max(errors, epsilon)
+    # Positive means model is better, negative means model is worse
+    denominator = max(statsbomb_error, model_error, epsilon)
+    score = (statsbomb_error - model_error) / denominator
+    
+    return score
+
+
+def format_shot_display(shot_data: Dict, model_prediction: float, goal_label: int, relative_performance_score: float) -> str:
     """
     Format shot data for comprehensive display.
     
@@ -77,6 +111,7 @@ def format_shot_display(shot_data: Dict, model_prediction: float, goal_label: in
         shot_data: Dictionary of decoded shot information
         model_prediction: Raw model prediction (0-1)
         goal_label: Actual goal outcome (0 or 1)
+        relative_performance_score: Score comparing model vs StatsBomb performance
         
     Returns:
         Formatted string for display
@@ -92,6 +127,10 @@ SHOT OUTCOME: {outcome_text}
    Model xG:     {model_prediction:.4f}
    StatsBomb xG: {shot_data['statsbomb_xg']:.4f}
    Difference:   {abs(model_prediction - shot_data['statsbomb_xg']):.4f}
+   
+📊 PERFORMANCE COMPARISON:
+   Relative Score: {relative_performance_score:+.3f} {'🟢' if relative_performance_score > 0.1 else '🔴' if relative_performance_score < -0.1 else '🟡'}
+   Interpretation: {'Model BETTER than StatsBomb' if relative_performance_score > 0.1 else 'Model WORSE than StatsBomb' if relative_performance_score < -0.1 else 'Model SIMILAR to StatsBomb'}
 
 📍 LOCATION & TIMING:
    Shot Location:  ({shot_data['location_x']:.1f}, {shot_data['location_y']:.1f})
@@ -304,6 +343,10 @@ def evaluate_xg_model_detailed(
     goal_count = 0
     no_goal_count = 0
     total_model_mse = 0.0
+    total_relative_score = 0.0
+    better_than_statsbomb = 0
+    worse_than_statsbomb = 0
+    similar_to_statsbomb = 0
     
     with torch.no_grad():
         for i, (match_id, shot_idx, goal_label) in enumerate(shot_samples):
@@ -331,13 +374,26 @@ def evaluate_xg_model_detailed(
             mse = (model_prediction - statsbomb_xg) ** 2
             total_model_mse += mse
             
+            # Calculate relative performance score
+            relative_score = calculate_relative_performance_score(model_prediction, statsbomb_xg, goal_label)
+            total_relative_score += relative_score
+            
+            # Categorize performance
+            if relative_score > 0.1:
+                better_than_statsbomb += 1
+            elif relative_score < -0.1:
+                worse_than_statsbomb += 1
+            else:
+                similar_to_statsbomb += 1
+            
             # Display formatted shot information
             print(f"\nSAMPLE {i+1}/{len(shot_samples)}")
-            print(format_shot_display(shot_data, model_prediction, goal_label))
+            print(format_shot_display(shot_data, model_prediction, goal_label, relative_score))
     
     # Summary statistics
     avg_mse = total_model_mse / len(shot_samples)
     rmse = np.sqrt(avg_mse)
+    avg_relative_score = total_relative_score / len(shot_samples)
     
     print("\n" + "="*100)
     print("EVALUATION SUMMARY")
@@ -345,8 +401,16 @@ def evaluate_xg_model_detailed(
     print(f"Total Samples:     {len(shot_samples)}")
     print(f"Goals:             {goal_count}")
     print(f"Non-Goals:         {no_goal_count}")
-    print(f"Model vs StatsBomb MSE:  {avg_mse:.6f}")
-    print(f"Model vs StatsBomb RMSE: {rmse:.6f}")
+    print()
+    print("📊 RELATIVE PERFORMANCE vs StatsBomb:")
+    print(f"   Average Score:   {avg_relative_score:+.4f}")
+    print(f"   Better:          {better_than_statsbomb}/{len(shot_samples)} ({100*better_than_statsbomb/len(shot_samples):.1f}%) 🟢")
+    print(f"   Similar:         {similar_to_statsbomb}/{len(shot_samples)} ({100*similar_to_statsbomb/len(shot_samples):.1f}%) 🟡")
+    print(f"   Worse:           {worse_than_statsbomb}/{len(shot_samples)} ({100*worse_than_statsbomb/len(shot_samples):.1f}%) 🔴")
+    print()
+    print("📈 TRADITIONAL METRICS:")
+    print(f"   Model vs StatsBomb MSE:  {avg_mse:.6f}")
+    print(f"   Model vs StatsBomb RMSE: {rmse:.6f}")
     print("="*100)
     
     logger.info("Detailed xG evaluation completed")

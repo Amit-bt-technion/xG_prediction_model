@@ -16,10 +16,11 @@ This document describes the comprehensive evaluation functionality for xG (expec
 
 The xG evaluation script (`xg_evaluation.py`) provides detailed analysis of trained xG models by:
 
-1. **Sampling balanced shots**: 10 goals and 10 non-goals (or custom amounts)
+1. **Sampling balanced shots**: 10 goals and 10 non-goals (or custom amounts) **from test set only**
 2. **Model predictions**: Raw 0-1 probability values from your trained model
 3. **StatsBomb comparison**: Original StatsBomb xG values for reference
-4. **Comprehensive shot data**: Detailed information about each shot scenario
+4. **📊 NEW: Relative performance analysis**: Sophisticated metric comparing model vs StatsBomb performance
+5. **Comprehensive shot data**: Detailed information about each shot scenario
 
 ## Features
 
@@ -34,6 +35,7 @@ The xG evaluation script (`xg_evaluation.py`) provides detailed analysis of trai
 - **Model xG**: Raw continuous output from your trained regression model
 - **StatsBomb xG**: Original StatsBomb expected goals value
 - **Difference**: Absolute difference between model and StatsBomb predictions
+- **📊 Relative Performance Score**: Measures how much better/worse the model is vs StatsBomb relative to actual outcome
 
 ### ⚽ Comprehensive Shot Details
 For each shot, displays:
@@ -60,6 +62,8 @@ For each shot, displays:
 ### 📈 Summary Statistics
 - Total samples evaluated
 - Goal vs non-goal breakdown
+- **📊 Relative Performance Analysis**: How often model beats/matches/loses to StatsBomb XG
+- **Average Relative Score**: Overall performance comparison metric
 - MSE and RMSE against StatsBomb xG
 - Overall evaluation summary
 
@@ -156,6 +160,10 @@ SHOT OUTCOME: GOAL
    StatsBomb xG: 0.7856
    Difference:   0.0378
 
+📊 PERFORMANCE COMPARISON:
+   Relative Score: +0.647 🟢
+   Interpretation: Model BETTER than StatsBomb
+
 📍 LOCATION & TIMING:
    Shot Location:  (102.3, 34.5)
    End Location:   (120.0, 40.2, 1.2m)
@@ -184,8 +192,16 @@ EVALUATION SUMMARY
 Total Samples:     20
 Goals:             10
 Non-Goals:         10
-Model vs StatsBomb MSE:  0.012456
-Model vs StatsBomb RMSE: 0.111600
+
+📊 RELATIVE PERFORMANCE vs StatsBomb:
+   Average Score:   +0.1234
+   Better:          12/20 (60.0%) 🟢
+   Similar:         5/20 (25.0%) 🟡
+   Worse:           3/20 (15.0%) 🔴
+
+📈 TRADITIONAL METRICS:
+   Model vs StatsBomb MSE:  0.012456
+   Model vs StatsBomb RMSE: 0.111600
 ====================================================================================================
 ```
 
@@ -209,6 +225,32 @@ The evaluation automatically applies the same field masking used during training
 - `shot.outcome.id` (index 83)
 
 This ensures the model doesn't have access to the target information during prediction.
+
+### Relative Performance Score
+
+**NEW METRIC**: The evaluation now includes a sophisticated metric that measures how much better (or worse) your model performs compared to StatsBomb xG relative to the actual outcome.
+
+#### Formula
+```
+Relative Score = (StatsBomb_Error - Model_Error) / max(StatsBomb_Error, Model_Error, ε)
+
+Where:
+- Model_Error = |model_xg - actual_outcome|
+- StatsBomb_Error = |statsbomb_xg - actual_outcome|
+- ε = small constant (0.01 default) to avoid division by zero
+```
+
+#### Interpretation
+- **Score > 0.1**: Model BETTER than StatsBomb 🟢
+- **Score < -0.1**: Model WORSE than StatsBomb 🔴  
+- **-0.1 ≤ Score ≤ 0.1**: Model SIMILAR to StatsBomb 🟡
+
+#### Examples
+- **Goal (actual=1)**: Model=0.88, StatsBomb=0.5 → Score=+0.76 🟢 (Model much closer to 1)
+- **No Goal (actual=0)**: Model=0.17, StatsBomb=0.05 → Score=-0.71 🔴 (StatsBomb much closer to 0)
+- **Perfect Model**: Model=1.0, StatsBomb=0.7, Actual=1 → Score=+1.0 🟢 (Maximum advantage)
+
+This metric provides intuitive insight into when your model makes better predictions than the industry standard StatsBomb xG.
 
 ### Data Decoding
 The script includes comprehensive decoding of normalized event vectors back to human-readable values:
