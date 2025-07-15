@@ -183,7 +183,10 @@ def evaluate_xg_model_detailed(
     cache_dir: str = "cache",
     sequence_length: int = 200,
     device: Optional[torch.device] = None,
-    num_samples: int = 20
+    num_samples: int = 20,
+    train_ratio: float = 0.8,
+    val_ratio: float = 0.1,
+    seed: int = 42
 ) -> None:
     """
     Detailed evaluation of xG model with sample predictions and StatsBomb comparison.
@@ -196,6 +199,9 @@ def evaluate_xg_model_detailed(
         sequence_length: Sequence length used in training
         device: Device to run evaluation on
         num_samples: Total number of samples to evaluate (should be even)
+        train_ratio: Proportion of matches used for training (to exclude from evaluation)
+        val_ratio: Proportion of matches used for validation (to exclude from evaluation)
+        seed: Random seed for reproducible train/test split
     """
     logger = logging.getLogger(__name__)
     
@@ -213,7 +219,7 @@ def evaluate_xg_model_detailed(
     logger.info(f"Starting detailed xG evaluation with {target_goals} goals and {target_no_goals} non-goals")
     
     # Load data with masking for xG prediction
-    mask_list = [72, 73, 74, 79, 80, 83]  # end_location[0,1,2], statsbomb_xg, deflected, outcome.id
+    mask_list = [6, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
     
     logger.info("Loading and embedding match data...")
     events_dict, embeddings_dict = load_and_embed_matches(
@@ -228,10 +234,32 @@ def evaluate_xg_model_detailed(
         task="xg_prediction"
     )
     
-    # Sample balanced shots
-    logger.info("Sampling balanced shots...")
+    # Apply same train/test split as training to get test set matches only
+    logger.info("Applying train/test split to ensure evaluation uses only test set...")
+    match_ids = list(events_dict.keys())
+    
+    # Set random seed for reproducible split (same as training)
+    random_state = random.getstate()
+    random.seed(seed)
+    random.shuffle(match_ids)
+    random.setstate(random_state)  # Restore original random state
+    
+    # Split match IDs into train, validation, and test sets (same logic as create_data_loaders)
+    num_matches = len(match_ids)
+    train_size = int(train_ratio * num_matches)
+    val_size = int(val_ratio * num_matches)
+    
+    test_match_ids = match_ids[train_size + val_size:]
+    logger.info(f"Using {len(test_match_ids)} test matches out of {num_matches} total matches")
+    logger.info(f"Excluded {train_size} training matches and {val_size} validation matches")
+    
+    # Filter events_dict to only include test matches
+    test_events_dict = {match_id: events_dict[match_id] for match_id in test_match_ids}
+    
+    # Sample balanced shots from test set only
+    logger.info("Sampling balanced shots from TEST SET ONLY...")
     shot_samples = sample_balanced_shots(
-        events_dict=events_dict,
+        events_dict=test_events_dict,
         target_goals=target_goals,
         target_no_goals=target_no_goals,
         sequence_length=sequence_length
@@ -239,6 +267,14 @@ def evaluate_xg_model_detailed(
     
     if len(shot_samples) < num_samples:
         logger.warning(f"Only found {len(shot_samples)} valid shots, expected {num_samples}")
+    
+    # Validation: Ensure all shot samples are from test set
+    test_match_ids_set = set(test_match_ids)
+    for match_id, _, _ in shot_samples:
+        if match_id not in test_match_ids_set:
+            raise ValueError(f"CRITICAL ERROR: Found shot sample from non-test match {match_id}. This violates the test set isolation requirement!")
+    
+    logger.info(f"✓ VALIDATION PASSED: All {len(shot_samples)} shot samples are from test set matches only")
     
     # Load model
     logger.info(f"Loading model from {model_path}")
@@ -326,7 +362,9 @@ if __name__ == "__main__":
     parser.add_argument("--cache-dir", type=str, default="cache", help="Cache directory")
     parser.add_argument("--sequence-length", type=int, default=200, help="Sequence length")
     parser.add_argument("--num-samples", type=int, default=20, help="Number of samples to evaluate")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--train-ratio", type=float, default=0.8, help="Proportion of matches for training (to exclude from evaluation)")
+    parser.add_argument("--val-ratio", type=float, default=0.1, help="Proportion of matches for validation (to exclude from evaluation)")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible train/test split")
     
     args = parser.parse_args()
     
@@ -345,5 +383,8 @@ if __name__ == "__main__":
         encoder_path=args.encoder_path,
         cache_dir=args.cache_dir,
         sequence_length=args.sequence_length,
-        num_samples=args.num_samples
+        num_samples=args.num_samples,
+        train_ratio=args.train_ratio,
+        val_ratio=args.val_ratio,
+        seed=args.seed
     ) 

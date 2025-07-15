@@ -84,12 +84,14 @@ def main(args):
     # Determine mask_list based on task
     mask_list = None
     if args.task == "xg_prediction":
-        # Masked fields for shot events: end_location[0,1,2], statsbomb_xg, deflected, outcome.id
-        # Based on tokenized_event.py shot event structure starting at index 71:
+        # Masked fields for shot events: out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
+        # Based on tokenized_event.py shot event structure:
+        # Common features: 6: out
+        # Shot features starting at index 71:
         # 71: shot.type.id, 72: end_location[0], 73: end_location[1], 74: end_location[2], 
         # 75: aerial_won, 76: follows_dribble, 77: first_time, 78: open_goal,
         # 79: statsbomb_xg, 80: deflected, 81: technique.id, 82: body_part.id, 83: outcome.id
-        mask_list = [72, 73, 74, 79, 80, 83]  # end_location[0,1,2], statsbomb_xg, deflected, outcome.id
+        mask_list = [6, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
         logger.info(f"Using mask_list for xG prediction: {mask_list}")
     
     # Step 1: Load and embed match data

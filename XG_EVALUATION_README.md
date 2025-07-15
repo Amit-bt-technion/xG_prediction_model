@@ -2,6 +2,16 @@
 
 This document describes the comprehensive evaluation functionality for xG (expected goals) prediction models.
 
+## ⚠️ CRITICAL: Test Set Isolation
+
+**This evaluation script ensures ZERO data leakage by:**
+- Using the exact same train/test split as the training process
+- Only evaluating samples from the test set (never seen during training)
+- Validating that all samples come from test matches only
+- Requiring matching `train_ratio`, `val_ratio`, and `seed` parameters
+
+**You MUST use the same split parameters as training to ensure valid evaluation!**
+
 ## Overview
 
 The xG evaluation script (`xg_evaluation.py`) provides detailed analysis of trained xG models by:
@@ -13,10 +23,12 @@ The xG evaluation script (`xg_evaluation.py`) provides detailed analysis of trai
 
 ## Features
 
-### 📊 Balanced Sampling
+### 📊 Balanced Sampling from Test Set Only
+- **CRITICAL**: Only samples from test set matches to ensure no data leakage
+- Applies same train/test split as training (80% train, 10% val, 10% test by default)
 - Automatically finds and samples equal numbers of goal and non-goal shots
 - Ensures sufficient sequence history (200 events before each shot)
-- Randomized selection for unbiased evaluation
+- Randomized selection for unbiased evaluation within test set
 
 ### 🎯 Prediction Comparison
 - **Model xG**: Raw continuous output from your trained regression model
@@ -61,7 +73,10 @@ python3 xg_evaluation.py \
   --data-dir /path/to/match/csv/files \
   --encoder-path /path/to/encoder.pth \
   --num-samples 20 \
-  --sequence-length 200
+  --sequence-length 200 \
+  --train-ratio 0.8 \
+  --val-ratio 0.1 \
+  --seed 42
 ```
 
 ### Programmatic Usage
@@ -74,7 +89,10 @@ evaluate_xg_model_detailed(
     data_dir="/path/to/match/data",
     encoder_path="/path/to/encoder.pth",
     num_samples=20,  # 10 goals + 10 non-goals
-    sequence_length=200
+    sequence_length=200,
+    train_ratio=0.8,  # Must match training split
+    val_ratio=0.1,    # Must match training split
+    seed=42           # Must match training seed
 )
 ```
 
@@ -88,7 +106,9 @@ evaluate_xg_model_detailed(
 | `cache_dir` | str | "cache" | Cache directory for embeddings |
 | `sequence_length` | int | 200 | Number of events in sequence |
 | `num_samples` | int | 20 | Total samples (should be even) |
-| `seed` | int | 42 | Random seed for reproducibility |
+| `train_ratio` | float | 0.8 | **CRITICAL**: Must match training split ratio |
+| `val_ratio` | float | 0.1 | **CRITICAL**: Must match training split ratio |
+| `seed` | int | 42 | **CRITICAL**: Must match training seed for reproducible split |
 
 ## Prerequisites
 
@@ -180,8 +200,11 @@ Model vs StatsBomb RMSE: 0.111600
 
 ### Masking
 The evaluation automatically applies the same field masking used during training:
+- `out` (index 6)
 - `shot.end_location[0,1,2]` (indices 72, 73, 74)
-- `shot.statsbomb_xg` (index 79) 
+- `shot.aerial_won` (index 75)
+- `shot.open_goal` (index 78) 
+- `shot.statsbomb_xg` (index 79)
 - `shot.deflected` (index 80)
 - `shot.outcome.id` (index 83)
 
