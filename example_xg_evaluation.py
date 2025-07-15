@@ -18,9 +18,9 @@ def run_xg_evaluation_example():
     """
     
     # Example paths - adjust these to your actual file locations
-    model_path = "checkpoints/best_model.pth"  # Path to your trained xG model
-    data_dir = "/path/to/your/match/csv/files"  # Directory with match CSV files
-    encoder_path = "/path/to/your/encoder.pth"  # Path to pretrained encoder
+    model_path = "best_model.pth"  # Path to your trained xG model
+    data_dir = "match_csv"  # Directory with match CSV files
+    encoder_path = "encoder"  # Path to pretrained encoder
     
     # Check if files exist before running
     if not os.path.exists(model_path):

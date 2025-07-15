@@ -519,7 +519,7 @@ def is_shot_event(event_vector: np.ndarray) -> bool:
     # The list of event_ids values is used in CategoricalFeatureParser
     # Shot event_id 16 is the 10th unique value in the sorted list, so normalized as (position)/total
     # Let's use a more robust approach - check if it's close to the expected normalized value
-    shot_event_normalized = 10 / 44  # Shot is the 10th value out of 44 possible event types
+    shot_event_normalized = 13 / 44  # Shot is the 10th value out of 44 possible event types
     return abs(event_vector[0] - shot_event_normalized) < 0.02  # Allow some tolerance
 
 
