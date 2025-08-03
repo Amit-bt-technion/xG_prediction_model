@@ -93,7 +93,7 @@ def main(args):
         # 71: shot.type.id, 72: end_location[0], 73: end_location[1], 74: end_location[2], 
         # 75: aerial_won, 76: follows_dribble, 77: first_time, 78: open_goal,
         # 79: statsbomb_xg, 80: deflected, 81: technique.id, 82: body_part.id, 83: outcome.id
-        mask_list = [6, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
+        mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
         logger.info(f"Using mask_list for xG prediction: {mask_list}")
     elif args.task == "mlp_baseline":
         # MLP baseline: same as xG prediction but also mask duration(4) and counterpress(7)

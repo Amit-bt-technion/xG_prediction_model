@@ -258,7 +258,7 @@ def evaluate_xg_model_detailed(
     logger.info(f"Starting detailed xG evaluation with {target_goals} goals and {target_no_goals} non-goals")
     
     # Load data with masking for xG prediction
-    mask_list = [6, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
+    mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
     
     logger.info("Loading and embedding match data...")
     events_dict, embeddings_dict = load_and_embed_matches(

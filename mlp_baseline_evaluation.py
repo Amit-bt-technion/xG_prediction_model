@@ -339,7 +339,7 @@ def evaluate_mlp_baseline_detailed(
     if transformer_model_path:
         logger.info(f"Loading transformer model from {transformer_model_path} for comparison")
         # We'll need to load transformer embeddings with different mask_list
-        xg_mask_list = [6, 72, 73, 74, 75, 78, 79, 80, 83]
+        xg_mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]
         _, transformer_embeddings_dict = load_and_embed_matches(
             csv_root_dir=data_dir,
             encoder_model_path=encoder_path,
