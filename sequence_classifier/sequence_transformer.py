@@ -174,3 +174,54 @@ class ContinuousValueTransformer(nn.Module):
         # Predict continuous value
         logits = self.predictor(cls_representation)
         return logits
+
+
+class MLPBaseline(nn.Module):
+    """
+    Simple Multi-Layer Perceptron for baseline xG prediction.
+    Takes a single shot event embedding and predicts xG value in [0,1] range.
+    """
+    def __init__(self, embedding_dim=32, hidden_dims=[32, 32, 32, 32, 32], dropout=0.1):
+        super(MLPBaseline, self).__init__()
+        
+        self.embedding_dim = embedding_dim
+        
+        # Build the MLP layers
+        layers = []
+        prev_dim = embedding_dim
+        
+        for hidden_dim in hidden_dims:
+            layers.extend([
+                nn.Linear(prev_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Dropout(dropout)
+            ])
+            prev_dim = hidden_dim
+        
+        # Final output layer with sigmoid activation for [0,1] range
+        layers.extend([
+            nn.Linear(prev_dim, 1),
+            nn.Sigmoid()
+        ])
+        
+        self.mlp = nn.Sequential(*layers)
+        
+    def forward(self, x):
+        """
+        Args:
+            x: Tensor of shape [batch_size, sequence_length, embedding_dim]
+               For MLP baseline, sequence_length should be 1
+        
+        Returns:
+            xG prediction as tensor of shape [batch_size, 1] with values in [0,1]
+        """
+        # For MLP baseline, we expect sequence_length=1, so we squeeze that dimension
+        if x.dim() == 3 and x.size(1) == 1:
+            x = x.squeeze(1)  # Remove sequence dimension: [batch_size, embedding_dim]
+        elif x.dim() == 3:
+            # If sequence_length > 1, take the last event (shot event)
+            x = x[:, -1, :]
+        
+        # Pass through MLP
+        output = self.mlp(x)
+        return output

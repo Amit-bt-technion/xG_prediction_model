@@ -544,6 +544,7 @@ def extract_goal_label_from_shot(event_vector: np.ndarray) -> int:
 
 
 @register_task_logic("xg_prediction")
+@register_task_logic("mlp_baseline")
 def sample_xg_sequences(
     match_id: str,
     num_events: int,
@@ -554,14 +555,14 @@ def sample_xg_sequences(
     **kwargs
 ) -> List[Tuple]:
     """
-    Generate sequences ending with shot events for xG prediction.
+    Generate sequences ending with shot events for xG prediction and MLP baseline.
     
     Args:
         match_id: Match ID
         num_events: Number of events in the match
-        sequence_length: Number of events in each sequence (should be 200)
-        min_gap: Minimum number of events between sequences (not used for xG)
-        max_gap: Maximum number of events between sequences (not used for xG)
+        sequence_length: Number of events in each sequence (200 for xG, 1 for MLP baseline)
+        min_gap: Minimum number of events between sequences (not used for xG/MLP)
+        max_gap: Maximum number of events between sequences (not used for xG/MLP)
         max_samples: Maximum number of samples to generate
         
     Returns:
@@ -580,7 +581,9 @@ def sample_xg_sequences(
     if match_id in events_dict:
         match_events = events_dict[match_id]
         
-        for i in range(sequence_length - 1, num_events):  # Ensure we have enough preceding events
+        # For MLP baseline (sequence_length=1), start from 0; for xG (sequence_length=200), start from sequence_length-1
+        start_idx = max(0, sequence_length - 1)
+        for i in range(start_idx, num_events):
             event_vector = match_events[i]
             if is_shot_event(event_vector):
                 goal_label = extract_goal_label_from_shot(event_vector)
@@ -600,6 +603,7 @@ def sample_xg_sequences(
 
 
 @register_task_item_getter("xg_prediction")
+@register_task_item_getter("mlp_baseline")
 def get_item_for_xg_prediction(
     sample: Tuple,
     match_id: str,
@@ -609,13 +613,13 @@ def get_item_for_xg_prediction(
     **kwargs
 ) -> Tuple:
     """
-    Getitem logic for xG prediction.
+    Getitem logic for xG prediction and MLP baseline.
     
     Args:
         sample: The sample tuple (match_id, sequence_end_index, goal_label)
         match_id: Match ID
         embeddings_dict: Match events embeddings (already masked)
-        sequence_length: Number of events in each sequence
+        sequence_length: Number of events in each sequence (200 for xG, 1 for MLP baseline)
         events_dict: Dictionary of event arrays by match_id
         
     Returns:
@@ -624,6 +628,9 @@ def get_item_for_xg_prediction(
     sequence_end_idx, goal_label = sample[1], sample[2]
     
     # Extract sequence ending with the shot event
+    # For MLP baseline (sequence_length=1): sequence_start = sequence_end_idx - 1 + 1 = sequence_end_idx
+    # This gives us seq = embeddings_dict[match_id][sequence_end_idx:sequence_end_idx + 1] (single shot event)
+    # For xG (sequence_length=200): sequence_start = sequence_end_idx - 199, giving full sequence
     sequence_start = sequence_end_idx - sequence_length + 1
     seq = embeddings_dict[match_id][sequence_start:sequence_end_idx + 1]
     
@@ -683,9 +690,9 @@ def create_data_loaders(
         task_params['events_df'] = events_dict
     
     # For xG prediction task, pass events_dict for shot detection
-    if task == "xg_prediction":
+    if task in ["xg_prediction", "mlp_baseline"]:
         task_params['events_dict'] = events_dict
-
+    
     # Get unique match IDs and shuffle them
     match_ids = list(events_dict.keys())
     random.shuffle(match_ids)
