@@ -56,7 +56,7 @@ def main(args):
     # Check for task and model_type compatibility
     # Define which tasks are regression tasks
     regression_tasks = ['xg_prediction', 'dominating_team_regression', 'mlp_baseline']
-    classification_tasks = ['event_type_classification', 'random_classification', 'dominating_team_classification']
+    classification_tasks = ['event_type_classification', 'chronological_order', 'random_classification', 'dominating_team_classification']
     
     is_regression_task = args.task in regression_tasks or 'regression' in args.task
     is_classification_task = args.task in classification_tasks or 'classification' in args.task
@@ -85,22 +85,16 @@ def main(args):
     
     # Determine mask_list based on task
     mask_list = None
-    if args.task == "xg_prediction":
-        # Masked fields for shot events: out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
+    if args.task in ["xg_prediction", "mlp_baseline"]:
+        # Masked fields for shot events: out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id, duration(4) and counterpress(7)
         # Based on tokenized_event.py shot event structure:
-        # Common features: 6: out
+        # Common features: 4: duration, 6: out, 7: counterpress
         # Shot features starting at index 71:
         # 71: shot.type.id, 72: end_location[0], 73: end_location[1], 74: end_location[2], 
         # 75: aerial_won, 76: follows_dribble, 77: first_time, 78: open_goal,
         # 79: statsbomb_xg, 80: deflected, 81: technique.id, 82: body_part.id, 83: outcome.id
-        mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]  # out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
-        logger.info(f"Using mask_list for xG prediction: {mask_list}")
-    elif args.task == "mlp_baseline":
-        # MLP baseline: same as xG prediction but also mask duration(4) and counterpress(7)
-        # Common features: 4: duration, 6: out, 7: counterpress
-        # Shot features: same as xG prediction
         mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]  # duration, out, counterpress, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
-        logger.info(f"Using mask_list for MLP baseline: {mask_list}")
+    logger.info(f"Using mask_list for {args.task}: {mask_list}")
     
     # Step 1: Load and embed match data
     logger.info("Loading and embedding match data...")
