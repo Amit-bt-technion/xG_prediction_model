@@ -1,2 +1,2 @@
 # football_task_models
-This project aims to train task-models professionals trained on preprocessed, vectorized, dimensionality reduced data from Statsbomb's open-data. The purpose is strictly academic.
+This project aims to train task-specific models on football related tasks and game understanding. Trained on preprocessed and embedded data from Statsbomb's open-data.
