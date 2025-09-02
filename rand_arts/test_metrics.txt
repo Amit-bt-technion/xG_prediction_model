@@ -1,0 +1,8 @@
+accuracy: 0.49896
+precision: 0
+recall: 0.0
+f1: 0
+tp: 0
+fp: 0
+tn: 49896
+fn: 50104
