@@ -139,61 +139,13 @@ Plotting and visualization utilities for analysis and presentation (implementati
 └── requirements.txt         # Python dependencies
 ```
 
-## Getting Started
-
-### Prerequisites
-
-Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-Required files:
-- Match event CSV files (tokenized StatsBomb data)
-- Pre-trained autoencoder model checkpoint
-- GPU recommended for training (CPU supported)
-
-### Training an xG Model
-
-```bash
-python main.py \
-    --task xg_prediction \
-    --model-type regression \
-    --data-dir /path/to/match_csv \
-    --encoder-path /path/to/encoder.pth \
-    --sequence-length 200 \
-    --batch-size 64 \
-    --epochs 30 \
-    --learning-rate 1e-4
-```
-
-### Evaluating the Model
-
-```bash
-python xg_evaluation.py \
-    --model-path checkpoints/best_model.pth \
-    --data-dir /path/to/match_csv \
-    --encoder-path /path/to/encoder.pth \
-    --num-samples 20
-```
-
-### Training an MLP Baseline
-
-```bash
-python main.py \
-    --task mlp_baseline \
-    --model-type regression \
-    --data-dir /path/to/match_csv \
-    --encoder-path /path/to/encoder.pth \
-    --sequence-length 1 \
-    --learning-rate 1e-3
-```
-
 ## Available Tasks
 
 The task registry in `dataset.py` defines available prediction tasks:
 - **`xg_prediction`**: Predict expected goals for shot events using preceding context
 - **`temporal_ordering`**: Binary classification of whether event sequences are in chronological order
+- **`dominating_team_classification`**: Binary classification to predict which team dominated a sequence based on possession time
+- **`dominating_team_regression`**: Regression to predict team 0's possession percentage (0-1 range) over a sequence
 - **`mlp_baseline`**: xG prediction without sequential context (single-event baseline)
 
 Additional tasks can be added by implementing sampling logic and registering with the task registry.
@@ -209,6 +161,7 @@ This enables quantifying the value of sequential modeling and validating archite
 
 ## Additional Documentation
 
+- `USER_MANUAL.md`: User guide with prerequisites, usage examples, and parameter documentation
 - `MLP_BASELINE_README.md`: Detailed guide for MLP baseline implementation and usage
 - `XG_EVALUATION_README.md`: Comprehensive evaluation methodology and metrics explanation
 - `StatsBomb Open Data Specification v1.1.pdf`: Event data format documentation
