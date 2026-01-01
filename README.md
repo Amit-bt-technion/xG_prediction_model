@@ -117,9 +117,6 @@ Plotting and visualization utilities for analysis and presentation (implementati
 
 ```
 .
-├── cache/                    # Cached embeddings (auto-generated)
-├── checkpoints/              # Saved model checkpoints
-├── artifacts/                # Training plots and logs
 ├── sequence_classifier/      # Main model package
 │   ├── dataset.py           # Data loading and sampling
 │   ├── preprocessing.py     # Embedding and caching
@@ -143,7 +140,7 @@ Plotting and visualization utilities for analysis and presentation (implementati
 
 The task registry in `dataset.py` defines available prediction tasks:
 - **`xg_prediction`**: Predict expected goals for shot events using preceding context
-- **`temporal_ordering`**: Binary classification of whether event sequences are in chronological order
+- **`chronological_order`**: Binary classification of whether event sequences are in chronological order
 - **`dominating_team_classification`**: Binary classification to predict which team dominated a sequence based on possession time
 - **`dominating_team_regression`**: Regression to predict team 0's possession percentage (0-1 range) over a sequence
 - **`mlp_baseline`**: xG prediction without sequential context (single-event baseline)
