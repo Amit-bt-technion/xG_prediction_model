@@ -13,7 +13,7 @@ from pathlib import Path
 
 from sequence_classifier.dataset import create_data_loaders
 from sequence_classifier.preprocessing import load_and_embed_matches, get_class_weights
-from sequence_classifier.sequence_transformer import EventSequenceTransformer, ContinuousValueTransformer
+from sequence_classifier.sequence_transformer import EventSequenceTransformer, ContinuousValueTransformer, MLPBaseline
 from sequence_classifier.training import train_model, evaluate_model, plot_training_history
 from sequence_classifier.regression_training import train_model as train_regression_model
 from sequence_classifier.regression_training import evaluate_model as evaluate_regression_model
@@ -54,11 +54,18 @@ def main(args):
     set_seed(args.seed)
     
     # Check for task and model_type compatibility
-    if args.model_type == 'classification' and 'regression' in args.task:
+    # Define which tasks are regression tasks
+    regression_tasks = ['xg_prediction', 'dominating_team_regression', 'mlp_baseline']
+    classification_tasks = ['event_type_classification', 'chronological_order', 'random_classification', 'dominating_team_classification']
+    
+    is_regression_task = args.task in regression_tasks or 'regression' in args.task
+    is_classification_task = args.task in classification_tasks or 'classification' in args.task
+    
+    if args.model_type == 'classification' and is_regression_task:
         logger.error(f"Incompatible configuration: Cannot use classification model with regression task '{args.task}'")
         return 1
     
-    if args.model_type == 'regression' and 'regression' not in args.task:
+    if args.model_type == 'regression' and is_classification_task:
         logger.error(f"Incompatible configuration: Cannot use regression model with classification task '{args.task}'")
         return 1
     
@@ -70,6 +77,25 @@ def main(args):
     device = torch.device("cuda" if torch.cuda.is_available() and not args.cpu else "cpu")
     logger.info(f"Using device: {device}")
     
+    # Log task configuration
+    if args.task == 'xg_prediction':
+        logger.info(f"Using regression model for xG prediction task (predicting goal probability)")
+    elif args.task == 'mlp_baseline':
+        logger.info(f"Using MLP baseline model for xG prediction (single shot events, no sequence context)")
+    
+    # Determine mask_list based on task
+    mask_list = None
+    if args.task in ["xg_prediction", "mlp_baseline"]:
+        # Masked fields for shot events: out, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id, duration(4) and counterpress(7)
+        # Based on tokenized_event.py shot event structure:
+        # Common features: 4: duration, 6: out, 7: counterpress
+        # Shot features starting at index 71:
+        # 71: shot.type.id, 72: end_location[0], 73: end_location[1], 74: end_location[2], 
+        # 75: aerial_won, 76: follows_dribble, 77: first_time, 78: open_goal,
+        # 79: statsbomb_xg, 80: deflected, 81: technique.id, 82: body_part.id, 83: outcome.id
+        mask_list = [4, 6, 7, 72, 73, 74, 75, 78, 79, 80, 83]  # duration, out, counterpress, end_location[0,1,2], aerial_won, open_goal, statsbomb_xg, deflected, outcome.id
+    logger.info(f"Using mask_list for {args.task}: {mask_list}")
+    
     # Step 1: Load and embed match data
     logger.info("Loading and embedding match data...")
     events_dict, embeddings_dict = load_and_embed_matches(
@@ -79,7 +105,9 @@ def main(args):
         device=device,
         batch_size=args.batch_size,
         force_recompute=args.force_recompute,
-        verbose=not args.quiet
+        verbose=not args.quiet,
+        mask_list=mask_list,
+        task=args.task
     )
     
     # Step 2: Create data loaders
@@ -115,8 +143,15 @@ def main(args):
             dim_feedforward=args.transformer_dim_feedforward,
             dropout=args.dropout
         )
+    elif args.task == 'mlp_baseline':
+        # MLP baseline model
+        model = MLPBaseline(
+            embedding_dim=32,  # Matches the latent dim from the encoder
+            hidden_dims=[32, 32, 32, 32, 32],  # 5 hidden layers as requested
+            dropout=args.dropout
+        )
     else:
-        # Regression model
+        # Regression model (Transformer)
         model = ContinuousValueTransformer(
             embedding_dim=32,  # Matches the latent dim from the encoder
             nhead=args.transformer_heads,
