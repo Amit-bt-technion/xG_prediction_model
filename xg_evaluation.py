@@ -203,10 +203,12 @@ def sample_balanced_shots(
     # Shuffle and combine
     random.shuffle(goal_samples)
     random.shuffle(no_goal_samples)
-    
+
+    min_num_of_samples = min(len(goal_samples), len(no_goal_samples))
+
     # Take the required number of each
-    selected_goals = goal_samples[:target_goals]
-    selected_no_goals = no_goal_samples[:target_no_goals]
+    selected_goals = goal_samples[:min_num_of_samples]
+    selected_no_goals = no_goal_samples[:min_num_of_samples]
     
     # Combine and shuffle the final list
     all_samples = selected_goals + selected_no_goals

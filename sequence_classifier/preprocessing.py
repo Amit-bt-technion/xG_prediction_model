@@ -108,7 +108,7 @@ def load_and_embed_matches(
         if use_cached_embeddings and use_cached_events:
             # Load both from cache
             embeddings_by_match[match_id] = np.load(embeddings_cache_path)
-            events_by_match[match_id] = np.load(events_cache_path)
+            events_by_match[match_id] = np.load(events_cache_path, allow_pickle=True)
             cache_info = f"task='{task}'" if task else "default"
             logger.debug(f"Loaded cached embeddings and events for match {match_id} ({cache_info})")
         else:

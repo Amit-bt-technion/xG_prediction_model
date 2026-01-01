@@ -18,6 +18,7 @@ import pandas as pd
 from sequence_classifier.dataset import EventSequenceDataset, is_shot_event, extract_goal_label_from_shot
 from sequence_classifier.preprocessing import load_and_embed_matches
 from sequence_classifier.sequence_transformer import MLPBaseline, ContinuousValueTransformer
+from xg_evaluation import sample_balanced_shots
 
 
 def sample_balanced_shots_for_mlp(
@@ -368,7 +369,14 @@ def evaluate_mlp_baseline_detailed(
         
         transformer_model = transformer_model.to(device)
         transformer_model.eval()
-    
+
+        shot_samples = sample_balanced_shots(
+            events_dict=test_events_dict,
+            target_goals=target_goals,
+            target_no_goals=target_no_goals,
+            sequence_length=50
+        )
+
     # Evaluate each sample
     logger.info("Evaluating samples...")
     print("\n" + "="*100)
